@@ -1,223 +1,376 @@
-import React, { useState, useEffect } from 'react';
-import { User, DollarSign, Users, CheckCircle, XCircle, BookOpen, Calculator, ChevronRight, GraduationCap, Printer, Phone, AlertTriangle, FileText, Play, MessageCircle } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saisie-Quest Academy - Saint-Luc Frameries</title>
+    
+    <!-- CHARGEMENT DES OUTILS (REACT, BABEL, TAILWIND) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- POLICES D'ÉCRITURE -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Architects+Daughter&display=swap" rel="stylesheet">
+    
+    <style>
+        /* STYLES GÉNÉRAUX */
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; }
+        .handwritten { font-family: 'Architects Daughter', cursive; }
+        
+        /* ANIMATIONS */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        .animate-slide-up { animation: slideUp 0.5s ease-out; }
 
-export default function App() {
-    // --- CONSTANTES ---
-    const MAX_QUESTIONS = 5;
-    const THRESHOLDS_2024 = [
-        { limit: 1341, rate: 0 },
-        { limit: 1440, rate: 0.20 },
-        { limit: 1589, rate: 0.30 },
-        { limit: 1738, rate: 0.40 },
-        { limit: Infinity, rate: 1.00 }
-    ];
-    const CHILD_DEDUCTION_AMOUNT = 83;
+        /* --- CONFIGURATION SPÉCIALE POUR L'IMPRESSION --- */
+        @media print {
+            /* Cache tous les boutons et éléments interactifs */
+            .no-print, button, input, .help-modal {
+                display: none !important;
+            }
+            
+            /* Réinitialise la page pour le papier blanc */
+            body, html, #root, .min-h-screen {
+                background-color: white !important;
+                color: black !important;
+                height: auto !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
 
-    const SCENARIOS = [
-        { id: 1, name: "Lucas", age: 23, job: "Mécanicien", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80", reason: "Défaut de paiement sur un crédit à la consommation pour l'achat d'une télévision.", mood: "Stressé" },
-        { id: 2, name: "Amélie", age: 31, job: "Secrétaire", image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80", reason: "Factures de chauffage impayées accumulées durant l'hiver dernier.", mood: "Inquiète" },
-        { id: 3, name: "Marc", age: 45, job: "Chauffeur", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80", reason: "Retard de 6 mois sur le paiement de la pension alimentaire.", mood: "En colère" },
-        { id: 4, name: "Sophie", age: 26, job: "Vendeuse", image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80", reason: "Dettes liées à des jeux d'argent en ligne.", mood: "Désolée" },
-        { id: 5, name: "David", age: 29, job: "Intérimaire", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80", reason: "Mensualités de leasing automobile impayées suite à une perte de contrat.", mood: "Fatigué" }
-    ];
+            /* Affiche proprement le bulletin */
+            .print-container {
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            
+            /* Force l'impression des couleurs de fond (vert/rouge pour les résultats) */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- POINT D'ENTRÉE DE L'APPLICATION -->
+    <div id="root">Chargement du jeu...</div>
 
-    // --- STATE ---
-    const [screen, setScreen] = useState('login');
-    const [userEmail, setUserEmail] = useState('');
-    const [loginError, setLoginError] = useState('');
-    const [currentCase, setCurrentCase] = useState(null);
-    const [salary, setSalary] = useState(0);
-    const [children, setChildren] = useState(0);
-    const [userAnswer, setUserAnswer] = useState("");
-    const [feedback, setFeedback] = useState(null);
-    const [showHelp, setShowHelp] = useState(false);
-    const [showCheatSheet, setShowCheatSheet] = useState(false);
-    const [history, setHistory] = useState([]);
+    <!-- CODE DU JEU (LOGIQUE REACT) -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-    // --- CALCUL (Méthode Déduction Finale) ---
-    const calculateSeizure = (salary, children) => {
-        let baseSeizable = 0;
-        let breakdown = [];
-        let previousLimit = 0;
+        // --- ICÔNES INTÉGRÉES (POUR ÉVITER LES ERREURS DE CHARGEMENT) ---
+        const Icons = {
+            User: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+            DollarSign: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+            Users: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+            CheckCircle: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+            XCircle: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+            BookOpen: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+            Calculator: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>,
+            ChevronRight: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+            GraduationCap: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
+            Printer: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
+            Phone: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+            AlertTriangle: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+            FileText: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+            Play: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>,
+            MessageCircle: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        };
 
-        // 1. Calcul Standard
-        for (let i = 0; i < THRESHOLDS_2024.length; i++) {
-            const { limit, rate } = THRESHOLDS_2024[i];
-            if (salary <= previousLimit) break;
-            const upper = Math.min(salary, limit);
-            const taxableAmount = upper - previousLimit;
-            if (taxableAmount > 0 && rate > 0) {
-                const seizureAmount = taxableAmount * rate;
-                baseSeizable += seizureAmount;
+        // --- 1. PARAMÈTRES ET DONNÉES ---
+        const MAX_QUESTIONS = 5;
+        const CHILD_DEDUCTION_AMOUNT = 83;
+        
+        const THRESHOLDS_2024 = [
+            { limit: 1341, rate: 0 },
+            { limit: 1440, rate: 0.20 },
+            { limit: 1589, rate: 0.30 },
+            { limit: 1738, rate: 0.40 },
+            { limit: Infinity, rate: 1.00 }
+        ];
+
+        const SCENARIOS = [
+            { id: 1, name: "Lucas", age: 23, job: "Mécanicien", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80", reason: "Défaut de paiement sur un crédit TV.", mood: "Stressé" },
+            { id: 2, name: "Amélie", age: 31, job: "Secrétaire", image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80", reason: "Factures de chauffage impayées.", mood: "Inquiète" },
+            { id: 3, name: "Marc", age: 45, job: "Chauffeur", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80", reason: "Retard de paiement pension alimentaire.", mood: "En colère" },
+            { id: 4, name: "Sophie", age: 26, job: "Vendeuse", image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80", reason: "Dettes de jeux en ligne.", mood: "Désolée" },
+            { id: 5, name: "David", age: 29, job: "Intérimaire", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80", reason: "Mensualités auto impayées.", mood: "Fatigué" }
+        ];
+
+        // --- 2. MOTEUR DE CALCUL (Méthode: Calcul brut - Déduction enfant) ---
+        const calculateSeizure = (salary, children) => {
+            let baseSeizable = 0;
+            let breakdown = [];
+            let previousLimit = 0;
+
+            // Étape A : Calcul sur le salaire brut (Barème standard)
+            for (let i = 0; i < THRESHOLDS_2024.length; i++) {
+                const { limit, rate } = THRESHOLDS_2024[i];
+                if (salary <= previousLimit) break;
+                const upper = Math.min(salary, limit);
+                const taxableAmount = upper - previousLimit;
+                
+                if (taxableAmount > 0 && rate > 0) {
+                    const seizureAmount = taxableAmount * rate;
+                    baseSeizable += seizureAmount;
+                    breakdown.push({
+                        label: `Tranche ${previousLimit.toFixed(0)} - ${limit === Infinity ? '∞' : limit.toFixed(0)} €`,
+                        detail: `${taxableAmount.toFixed(2)} x ${(rate * 100).toFixed(0)}%`,
+                        result: seizureAmount.toFixed(2),
+                        type: 'standard'
+                    });
+                }
+                previousLimit = limit;
+            }
+
+            // Étape B : Déduction pour enfants (Soustraction sur le résultat)
+            const deduction = children * CHILD_DEDUCTION_AMOUNT;
+            let finalSeizable = baseSeizable;
+
+            if (children > 0) {
+                breakdown.push({ label: "Sous-total (Avant enfants)", detail: "", result: baseSeizable.toFixed(2), type: 'subtotal' });
+                finalSeizable = Math.max(0, baseSeizable - deduction);
                 breakdown.push({
-                    label: `Tranche ${previousLimit.toFixed(0)} - ${limit === Infinity ? '∞' : limit.toFixed(0)} €`,
-                    detail: `${taxableAmount.toFixed(2)} x ${(rate * 100).toFixed(0)}%`,
-                    result: seizureAmount.toFixed(2),
-                    type: 'standard'
+                    label: `Déduction ${children} Enfant(s)`,
+                    detail: `-${CHILD_DEDUCTION_AMOUNT}€ x ${children}`,
+                    result: `-${deduction.toFixed(2)}`,
+                    type: 'deduction'
                 });
             }
-            previousLimit = limit;
-        }
 
-        // 2. Déduction Enfants
-        const deduction = children * CHILD_DEDUCTION_AMOUNT;
-        let finalSeizable = baseSeizable;
-
-        if (children > 0) {
-            breakdown.push({ label: "Sous-total (Avant enfants)", detail: "", result: baseSeizable.toFixed(2), type: 'subtotal' });
-            finalSeizable = Math.max(0, baseSeizable - deduction);
-            breakdown.push({
-                label: `Déduction ${children} Enfant(s)`,
-                detail: `-${CHILD_DEDUCTION_AMOUNT}€ x ${children}`,
-                result: `-${deduction.toFixed(2)}`,
-                type: 'deduction'
-            });
-        }
-
-        return { total: parseFloat(finalSeizable.toFixed(2)), breakdown, deduction };
-    };
-
-    // --- LOGIQUE JEU ---
-    const handleLogin = (e) => {
-        e.preventDefault();
-        const emailRegex = /^[a-zA-Z0-9._-]+@istlm\.org$/i;
-        if (emailRegex.test(userEmail.trim())) {
-            setLoginError('');
-            generateLevel(); 
-        } else {
-            setLoginError("Accès refusé. Utilisez votre adresse prenom.nom@istlm.org");
-        }
-    };
-
-    const generateLevel = () => {
-        if (history.length >= MAX_QUESTIONS) {
-            setScreen('report');
-            return;
-        }
-        
-        let scenario = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
-        // Éviter la répétition immédiate du même scénario
-        if (currentCase && currentCase.id === scenario.id) {
-            scenario = SCENARIOS[(scenario.id % SCENARIOS.length)]; 
-        }
-
-        // Génération de salaires "pièges" (tranches basses)
-        let netSalary = Math.random() < 0.7 
-            ? 1350 + Math.floor(Math.random() * 250) 
-            : 1600 + Math.floor(Math.random() * 1500);
-        netSalary = Math.round(netSalary * 2) / 2;
-        
-        const hasChildren = Math.random() < 0.6;
-        const numChildren = hasChildren ? Math.floor(Math.random() * 3) + 1 : 0;
-
-        setCurrentCase(scenario);
-        setSalary(netSalary);
-        setChildren(numChildren);
-        setUserAnswer("");
-        setFeedback(null);
-        setShowHelp(false);
-        setShowCheatSheet(false);
-        setScreen('game');
-    };
-
-    const handleCheck = () => {
-        if (!userAnswer) return;
-        const solution = calculateSeizure(salary, children);
-        const val = parseFloat(userAnswer.replace(',', '.'));
-        const isCorrect = Math.abs(val - solution.total) < 0.5;
-
-        const resultEntry = {
-            id: history.length + 1,
-            scenario: currentCase.name,
-            reason: currentCase.reason,
-            salary,
-            children,
-            userAnswer: val,
-            correctAnswer: solution.total,
-            isCorrect
+            return { total: parseFloat(finalSeizable.toFixed(2)), breakdown, deduction };
         };
-        
-        setHistory(prev => [...prev, resultEntry]);
-        setFeedback({ correct: isCorrect, solution });
-    };
 
-    const handleNext = () => generateLevel();
+        // --- 3. COMPOSANTS D'INTERFACE ---
+        const Button = ({ onClick, children, className = "", variant = "primary", icon: Icon, disabled = false }) => {
+            const variants = {
+                primary: "bg-indigo-700 text-white hover:bg-indigo-800 shadow-indigo-200",
+                secondary: "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50",
+                success: "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-200"
+            };
+            return (
+                <button onClick={onClick} disabled={disabled} className={`px-5 py-3 rounded-lg font-bold transition-all shadow-sm flex items-center justify-center gap-2 no-print ${variants[variant]} ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
+                    {Icon && <Icon size={20} />} {children}
+                </button>
+            );
+        };
 
-    // --- AIDE ---
-    const getSmartHelp = () => {
-        const steps = [];
-        steps.push(`1. Ton client gagne ${salary} €. Fais d'abord le calcul SANS les enfants.`);
-        if (salary <= 1341) {
-            steps.push("   -> C'est simple : en dessous de 1341€, on ne saisit rien !");
-        } else {
-            const taxable = salary - 1341;
-            steps.push(`   -> Il dépasse le plancher de 1341€. La différence est de ${taxable.toFixed(2)}€.`);
-            steps.push("   -> Applique les pourcentages (20%, 30%...) sur chaque tranche.");
-        }
-        if (children > 0) {
-            steps.push(`2. IMPORTANT : Il a ${children} enfant(s).`);
-            steps.push(`   -> Une fois ton calcul terminé, retire ${children} x ${CHILD_DEDUCTION_AMOUNT}€ (soit ${children * CHILD_DEDUCTION_AMOUNT}€) de ton résultat.`);
-            steps.push("   -> Si le résultat final est négatif, la saisie est de 0.");
-        } else {
-            steps.push("2. Pas d'enfants, donc le résultat du calcul est final.");
-        }
-        return steps;
-    };
+        // --- 4. APPLICATION PRINCIPALE ---
+        function App() {
+            const [screen, setScreen] = useState('login');
+            const [userEmail, setUserEmail] = useState('');
+            const [loginError, setLoginError] = useState('');
+            const [currentCase, setCurrentCase] = useState(null);
+            const [salary, setSalary] = useState(0);
+            const [children, setChildren] = useState(0);
+            const [userAnswer, setUserAnswer] = useState("");
+            const [feedback, setFeedback] = useState(null);
+            const [showHelp, setShowHelp] = useState(false);
+            const [showCheatSheet, setShowCheatSheet] = useState(false);
+            const [history, setHistory] = useState([]);
 
-    // --- IMPRESSION ---
-    const handlePrint = () => {
-        window.focus();
-        setTimeout(() => window.print(), 100);
-    };
+            // Fonction d'impression sécurisée
+            const handlePrint = () => {
+                setTimeout(() => window.print(), 100);
+            };
 
-    // --- RENDER COMPONENT ---
-    return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-            {/* STYLES D'IMPRESSION INJECTÉS */}
-            <style>{`
-                @media print {
-                    .no-print, button { display: none !important; }
-                    body, .min-h-screen { background-color: white !important; padding: 0 !important; margin: 0 !important; }
-                    .print-container { max-width: 100% !important; width: 100% !important; box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; }
-                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            // Connexion
+            const handleLogin = (e) => {
+                e.preventDefault();
+                // Vérification stricte de l'email @istlm.org
+                const emailRegex = /^[a-zA-Z0-9._-]+@istlm\.org$/i;
+                if (emailRegex.test(userEmail.trim())) {
+                    setLoginError('');
+                    generateLevel(); 
+                } else {
+                    setLoginError("Accès refusé. Utilisez votre adresse prenom.nom@istlm.org");
                 }
-                .handwritten { font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; }
-                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-                .animate-fade-in { animation: fadeIn 0.5s ease-out; }
-            `}</style>
+            };
 
-            {/* ÉCRAN LOGIN */}
-            {screen === 'login' && (
-                <div className="min-h-screen flex items-center justify-center p-4">
-                    <div className="bg-white max-w-md w-full rounded-2xl shadow-xl p-8 border border-slate-200">
-                        <div className="text-center mb-8">
-                            <div className="bg-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-700">
-                                <GraduationCap size={40} />
-                            </div>
-                            <h1 className="text-2xl font-bold text-slate-800">Saisie-Quest Academy</h1>
-                            <p className="text-slate-500 text-sm mt-1">Saint-Luc Frameries • Mr Depret</p>
-                        </div>
-                        <form onSubmit={handleLogin} className="space-y-6">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Email élève (@istlm.org)</label>
-                                <div className="relative">
-                                    <input type="email" value={userEmail} onChange={e => setUserEmail(e.target.value)} className={`w-full pl-10 pr-4 py-3 rounded-lg border outline-none focus:ring-2 transition-all ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-indigo-200 focus:border-indigo-500'}`} placeholder="prenom.nom@istlm.org" />
-                                    <User className="absolute left-3 top-3.5 text-slate-400" size={18} />
+            // Générateur de niveau
+            const generateLevel = () => {
+                if (history.length >= MAX_QUESTIONS) {
+                    setScreen('report');
+                    return;
+                }
+                let scenario = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
+                if (currentCase && currentCase.id === scenario.id) {
+                    scenario = SCENARIOS[(scenario.id % SCENARIOS.length)]; 
+                }
+                
+                // Salaires difficiles (proches des tranches)
+                let netSalary = Math.random() < 0.7 
+                    ? 1350 + Math.floor(Math.random() * 250) 
+                    : 1600 + Math.floor(Math.random() * 1500);
+                netSalary = Math.round(netSalary * 2) / 2;
+                
+                const hasChildren = Math.random() < 0.6;
+                const numChildren = hasChildren ? Math.floor(Math.random() * 3) + 1 : 0;
+
+                setCurrentCase(scenario);
+                setSalary(netSalary);
+                setChildren(numChildren);
+                setUserAnswer("");
+                setFeedback(null);
+                setShowHelp(false);
+                setShowCheatSheet(false);
+                setScreen('game');
+            };
+
+            // Vérification de la réponse
+            const handleCheck = () => {
+                if (!userAnswer) return;
+                const solution = calculateSeizure(salary, children);
+                const val = parseFloat(userAnswer.replace(',', '.'));
+                const isCorrect = Math.abs(val - solution.total) < 0.5;
+
+                const resultEntry = {
+                    id: history.length + 1,
+                    scenario: currentCase.name,
+                    reason: currentCase.reason,
+                    salary,
+                    children,
+                    userAnswer: val,
+                    correctAnswer: solution.total,
+                    isCorrect
+                };
+                
+                setHistory(prev => [...prev, resultEntry]);
+                setFeedback({ correct: isCorrect, solution });
+            };
+
+            const handleNext = () => generateLevel();
+
+            // Aide Intelligente (Contextuelle)
+            const getSmartHelp = () => {
+                const steps = [];
+                steps.push(`1. Ton client gagne ${salary} €. Fais d'abord le calcul SANS les enfants.`);
+                
+                if (salary <= 1341) {
+                    steps.push("   -> C'est simple : en dessous de 1341€, on ne saisit rien !");
+                } else {
+                    const taxable = salary - 1341;
+                    steps.push(`   -> Il dépasse le plancher de 1341€. La différence est de ${taxable.toFixed(2)}€.`);
+                    steps.push("   -> Applique les % (20, 30...) sur chaque morceau de cette différence.");
+                }
+
+                if (children > 0) {
+                    steps.push(`2. ATTENTION : Il a ${children} enfant(s).`);
+                    steps.push(`   -> Une fois ton calcul terminé, retire ${children} x ${CHILD_DEDUCTION_AMOUNT}€ (soit ${children * CHILD_DEDUCTION_AMOUNT}€) de ton résultat.`);
+                    steps.push("   -> Si le résultat devient négatif, la réponse est 0.");
+                } else {
+                    steps.push("2. Pas d'enfants, ton premier calcul est le bon.");
+                }
+                return steps;
+            };
+
+            // --- RENDER : ÉCRAN DE CONNEXION ---
+            if (screen === 'login') {
+                return (
+                    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans">
+                        <div className="bg-white max-w-md w-full rounded-2xl shadow-xl p-8 border border-slate-200">
+                            <div className="text-center mb-8">
+                                <div className="bg-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-700">
+                                    <Icons.GraduationCap size={40} />
                                 </div>
-                                {loginError && <div className="mt-2 text-red-500 text-sm flex items-center gap-1"><AlertTriangle size={14}/> {loginError}</div>}
+                                <h1 className="text-2xl font-bold text-slate-800">Saisie-Quest Academy</h1>
+                                <p className="text-slate-500 text-sm mt-1">Saint-Luc Frameries • Mr Depret</p>
                             </div>
-                            <button onClick={handleLogin} className="w-full py-4 rounded-lg font-bold bg-indigo-700 text-white hover:bg-indigo-800 transition-all flex items-center justify-center gap-2">
-                                <Play size={20} /> Commencer
-                            </button>
-                        </form>
+                            <form onSubmit={handleLogin} className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Email élève (@istlm.org)</label>
+                                    <div className="relative">
+                                        <input type="email" value={userEmail} onChange={e => setUserEmail(e.target.value)} className={`w-full pl-10 pr-4 py-3 rounded-lg border outline-none focus:ring-2 transition-all ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-indigo-200 focus:border-indigo-500'}`} placeholder="prenom.nom@istlm.org" />
+                                        <span className="absolute left-3 top-3.5 text-slate-400"><Icons.User size={18} /></span>
+                                    </div>
+                                    {loginError && <div className="mt-2 text-red-500 text-sm flex items-center gap-1 animate-pulse"><Icons.AlertTriangle size={14}/> {loginError}</div>}
+                                </div>
+                                <Button onClick={handleLogin} className="w-full py-4 rounded-lg font-bold bg-indigo-700 text-white hover:bg-indigo-800 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                    <Icons.Play size={20} /> Commencer
+                                </Button>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            }
 
-            {/* ÉCRAN JEU */}
-            {screen === 'game' && currentCase && (
-                <div className="min-h-screen flex flex-col md:flex-row">
-                    {/* GAUCHE: Dossier */}
+            // --- RENDER : BULLETIN FINAL ---
+            if (screen === 'report') {
+                const score = history.filter(h => h.isCorrect).length;
+                return (
+                    <div className="min-h-screen p-8 bg-white max-w-4xl mx-auto print-container">
+                        <div className="border-b-2 border-slate-800 pb-6 mb-8 flex justify-between items-end">
+                            <div>
+                                <h1 className="text-3xl font-bold text-slate-900 mb-2">Bulletin de Compétences</h1>
+                                <h2 className="text-xl text-slate-600">Calcul de la quotité saisissable</h2>
+                                <div className="mt-4 text-sm text-slate-500">
+                                    <p><strong>Élève :</strong> {userEmail}</p>
+                                    <p><strong>Professeur :</strong> Mr Depret (Saint-Luc Frameries)</p>
+                                    <p><strong>Date :</strong> {new Date().toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                            <div className="text-right bg-slate-100 p-6 rounded-xl no-print">
+                                <div className="text-sm text-slate-500 uppercase tracking-wider mb-1">Note Finale</div>
+                                <div className={`text-5xl font-bold ${score >= 3 ? 'text-emerald-600' : 'text-red-600'}`}>{score} / {MAX_QUESTIONS}</div>
+                            </div>
+                            {/* Note visible uniquement à l'impression */}
+                            <div className="text-right hidden" style={{display: 'none'}}>
+                                <div className="text-4xl font-bold border p-2">{score} / {MAX_QUESTIONS}</div>
+                            </div>
+                        </div>
+
+                        <table className="w-full text-left border-collapse mb-8 text-sm">
+                            <thead>
+                                <tr className="bg-slate-100 border-y border-slate-300">
+                                    <th className="p-3 font-bold text-slate-700">#</th>
+                                    <th className="p-3 font-bold text-slate-700">Données</th>
+                                    <th className="p-3 font-bold text-slate-700 text-right">Réponse</th>
+                                    <th className="p-3 font-bold text-slate-700 text-right">Correct</th>
+                                    <th className="p-3 font-bold text-slate-700 text-center">Résultat</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {history.map((h) => (
+                                    <tr key={h.id} className="border-b border-slate-200">
+                                        <td className="p-3 text-slate-500">{h.id}</td>
+                                        <td className="p-3"><div className="font-bold">{h.salary.toFixed(2)} €</div><div className="text-xs text-slate-500">{h.children} enf.</div></td>
+                                        <td className="p-3 font-mono text-right">{h.userAnswer.toFixed(2)} €</td>
+                                        <td className="p-3 font-mono text-right font-bold text-slate-700">{h.correctAnswer.toFixed(2)} €</td>
+                                        <td className="p-3 text-center">
+                                            {h.isCorrect ? <span className="text-emerald-600 font-bold">OUI</span> : <span className="text-red-600 font-bold">NON</span>}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        <div className="flex justify-center gap-4 no-print">
+                            <Button onClick={handlePrint} variant="secondary" icon={Icons.Printer}>Imprimer</Button>
+                            <p className="text-xs text-slate-400 self-center mt-2">(Astuce: Ctrl+P fonctionne aussi)</p>
+                            <Button onClick={() => { setHistory([]); setScreen('login'); }} variant="primary">Recommencer</Button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- RENDER : JEU ---
+            const helpSteps = getSmartHelp();
+
+            return (
+                <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans no-print-bg">
+                    {/* GAUCHE : DOSSIER */}
                     <div className="md:w-1/3 bg-white border-r border-slate-200 p-6 flex flex-col h-auto md:h-screen sticky top-0 no-print">
                         <div className="mb-6 flex justify-between items-center">
                             <div className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">DOSSIER {history.length + 1} / {MAX_QUESTIONS}</div>
@@ -225,48 +378,36 @@ export default function App() {
                         </div>
                         <div className="flex items-center gap-4 mb-6">
                             <img src={currentCase.image} className="w-24 h-24 rounded-xl object-cover shadow-md" alt="Client" />
-                            <div>
-                                <h2 className="text-2xl font-bold text-slate-800">{currentCase.name}</h2>
-                                <p className="text-slate-500">{currentCase.job}</p>
-                            </div>
+                            <div><h2 className="text-2xl font-bold text-slate-800">{currentCase.name}</h2><p className="text-slate-500">{currentCase.job}</p></div>
                         </div>
                         <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
-                            <h3 className="text-amber-800 font-bold text-sm mb-1 flex items-center gap-2"><FileText size={16}/> Motif</h3>
+                            <h3 className="text-amber-800 font-bold text-sm mb-1 flex items-center gap-2"><Icons.FileText size={16}/> Motif</h3>
                             <p className="text-amber-900 text-sm italic">"{currentCase.reason}"</p>
                         </div>
                         <div className="space-y-4">
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between">
-                                <span className="text-slate-600 font-medium flex items-center gap-2"><DollarSign size={18}/> Salaire Net</span>
-                                <span className="text-2xl font-bold text-slate-800">{salary} €</span>
-                            </div>
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between">
-                                <span className="text-slate-600 font-medium flex items-center gap-2"><Users size={18}/> Enfants</span>
-                                <span className="text-2xl font-bold text-slate-800">{children}</span>
-                            </div>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between"><span className="text-slate-600 font-medium flex items-center gap-2"><Icons.DollarSign size={18}/> Salaire Net</span><span className="text-2xl font-bold text-slate-800">{salary} €</span></div>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between"><span className="text-slate-600 font-medium flex items-center gap-2"><Icons.Users size={18}/> Enfants</span><span className="text-2xl font-bold text-slate-800">{children}</span></div>
                         </div>
                     </div>
 
-                    {/* DROITE: Calcul */}
-                    <div className="md:w-2/3 p-6 md:p-12 overflow-y-auto bg-slate-50">
+                    {/* DROITE : CALCULATEUR */}
+                    <div className="md:w-2/3 p-6 md:p-12 overflow-y-auto bg-slate-50 no-print-bg">
                         <div className="max-w-2xl mx-auto">
                             <div className="flex justify-between items-center mb-6 gap-4 no-print">
                                 <h2 className="text-2xl font-bold text-slate-800">Calcul de la saisie</h2>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setShowHelp(!showHelp)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:text-indigo-600 shadow-sm text-sm"><MessageCircle size={16}/> Aide Ami</button>
-                                    <button onClick={() => setShowCheatSheet(!showCheatSheet)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:text-indigo-600 shadow-sm text-sm"><BookOpen size={16}/> Barème</button>
+                                    <button onClick={() => setShowHelp(!showHelp)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:text-indigo-600 shadow-sm text-sm"><Icons.MessageCircle size={16}/> Aide Ami</button>
+                                    <button onClick={() => setShowCheatSheet(!showCheatSheet)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:text-indigo-600 shadow-sm text-sm"><Icons.BookOpen size={16}/> Barème</button>
                                 </div>
                             </div>
 
                             {/* AIDE */}
                             {showHelp && (
                                 <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg mb-8 animate-fade-in relative no-print">
-                                    <button onClick={() => setShowHelp(false)} className="absolute top-4 right-4 text-blue-200 hover:text-white"><XCircle size={20}/></button>
+                                    <button onClick={() => setShowHelp(false)} className="absolute top-4 right-4 text-blue-200 hover:text-white"><Icons.XCircle size={20}/></button>
                                     <div className="flex gap-4">
-                                        <div className="bg-white/20 p-3 rounded-full h-fit"><Phone className="text-white"/></div>
-                                        <div>
-                                            <h4 className="font-bold text-lg mb-3">L'Ami Expert :</h4>
-                                            <div className="space-y-2 text-blue-50 text-sm">{getSmartHelp().map((step, idx) => <p key={idx}>{step}</p>)}</div>
-                                        </div>
+                                        <div className="bg-white/20 p-3 rounded-full h-fit"><Icons.Phone className="text-white"/></div>
+                                        <div><h4 className="font-bold text-lg mb-3">L'Ami Expert :</h4><div className="space-y-2 text-blue-50 text-sm">{helpSteps.map((step, idx) => <p key={idx}>{step}</p>)}</div></div>
                                     </div>
                                 </div>
                             )}
@@ -286,118 +427,43 @@ export default function App() {
                                 </div>
                             )}
 
-                            {/* ZONE REPONSE */}
+                            {/* ZONE DE REPONSE */}
                             {!feedback ? (
                                 <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 no-print">
                                     <label className="block text-slate-600 font-bold mb-4 uppercase tracking-wide text-xs">Votre réponse</label>
                                     <div className="flex gap-4">
-                                        <div className="relative flex-1">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">€</span>
-                                            <input type="number" value={userAnswer} onChange={(e) => setUserAnswer(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCheck()} className="w-full pl-10 pr-4 py-4 text-2xl border-2 border-slate-200 rounded-xl focus:border-indigo-600 outline-none font-bold text-slate-800" placeholder="0.00" autoFocus />
-                                        </div>
-                                        <button onClick={handleCheck} className="px-8 rounded-lg font-bold bg-indigo-700 text-white hover:bg-indigo-800 transition-all shadow-sm flex items-center justify-center gap-2">
-                                            <Calculator size={20} /> Vérifier
-                                        </button>
+                                        <input type="number" value={userAnswer} onChange={(e) => setUserAnswer(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCheck()} className="w-full pl-4 pr-4 py-4 text-2xl border-2 border-slate-200 rounded-xl focus:border-indigo-600 outline-none font-bold text-slate-800" placeholder="0.00" autoFocus />
+                                        <Button onClick={handleCheck} icon={Icons.Calculator}>Vérifier</Button>
                                     </div>
                                 </div>
                             ) : (
                                 <div className={`rounded-2xl border-2 overflow-hidden animate-fade-in shadow-xl ${feedback.correct ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} no-print`}>
                                     <div className="p-6 flex items-start gap-4">
-                                        <div className={`p-2 rounded-full ${feedback.correct ? 'bg-emerald-200 text-emerald-700' : 'bg-red-200 text-red-700'}`}>{feedback.correct ? <CheckCircle size={32} /> : <XCircle size={32} />}</div>
-                                        <div>
-                                            <h3 className={`text-2xl font-bold ${feedback.correct ? 'text-emerald-800' : 'text-red-800'}`}>{feedback.correct ? "Correct !" : "Incorrect"}</h3>
-                                            <p className="text-slate-700 mt-1">Réponse attendue : <strong>{feedback.solution.total.toFixed(2)} €</strong></p>
-                                        </div>
+                                        <div className={`p-2 rounded-full ${feedback.correct ? 'bg-emerald-200 text-emerald-700' : 'bg-red-200 text-red-700'}`}>{feedback.correct ? <Icons.CheckCircle size={32} /> : <Icons.XCircle size={32} />}</div>
+                                        <div><h3 className={`text-2xl font-bold ${feedback.correct ? 'text-emerald-800' : 'text-red-800'}`}>{feedback.correct ? "Correct !" : "Incorrect"}</h3><p className="text-slate-700 mt-1">Réponse attendue : <strong>{feedback.solution.total.toFixed(2)} €</strong></p></div>
                                     </div>
                                     <div className="bg-white border-t border-slate-200 p-6">
                                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Détail du calcul</h4>
                                         <div className="space-y-2">
                                             {feedback.solution.breakdown.map((row, i) => (
                                                 <div key={i} className={`flex justify-between items-center text-sm p-3 rounded-lg ${row.type === 'deduction' ? 'bg-red-50 text-red-700 font-bold border border-red-100' : row.type === 'subtotal' ? 'bg-slate-100 font-bold border-t border-slate-200' : 'bg-slate-50 text-slate-600'}`}>
-                                                    <div className="w-1/3">{row.label}</div>
-                                                    <div className="w-1/3 text-center">{row.detail}</div>
-                                                    <div className="w-1/3 text-right">{row.result} €</div>
+                                                    <div className="w-1/3">{row.label}</div><div className="w-1/3 text-center">{row.detail}</div><div className="w-1/3 text-right">{row.result} €</div>
                                                 </div>
                                             ))}
-                                            <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-lg">
-                                                <span className="font-bold text-slate-700">Total Final</span>
-                                                <span className="font-bold text-indigo-700">{feedback.solution.total.toFixed(2)} €</span>
-                                            </div>
+                                            <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-lg"><span className="font-bold text-slate-700">Total Final</span><span className="font-bold text-indigo-700">{feedback.solution.total.toFixed(2)} €</span></div>
                                         </div>
-                                        <div className="mt-8 flex justify-end">
-                                            <button onClick={handleNext} className="px-5 py-3 rounded-lg font-bold bg-indigo-700 text-white hover:bg-indigo-800 transition-all shadow-sm flex items-center justify-center gap-2">
-                                                {history.length >= MAX_QUESTIONS ? "Voir le Bulletin" : "Suite"} <ChevronRight size={20} />
-                                            </button>
-                                        </div>
+                                        <div className="mt-8 flex justify-end"><Button onClick={() => generateLevel()} variant={feedback.correct ? "success" : "primary"} icon={Icons.ChevronRight}>{history.length >= MAX_QUESTIONS ? "Voir le Bulletin" : "Suite"}</Button></div>
                                     </div>
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
-            )}
+            );
+        }
 
-            {/* ÉCRAN RAPPORT (BULLETIN) */}
-            {screen === 'report' && (
-                <div className="min-h-screen p-8 bg-white max-w-4xl mx-auto print-container">
-                    <div className="border-b-2 border-slate-800 pb-6 mb-8 flex justify-between items-end">
-                        <div>
-                            <h1 className="text-3xl font-bold text-slate-900 mb-2">Bulletin de Compétences</h1>
-                            <h2 className="text-xl text-slate-600">Calcul de la quotité saisissable</h2>
-                            <div className="mt-4 text-sm text-slate-500">
-                                <p><strong>Élève :</strong> {userEmail}</p>
-                                <p><strong>Professeur :</strong> Mr Depret (Saint-Luc Frameries)</p>
-                                <p><strong>Date :</strong> {new Date().toLocaleDateString()}</p>
-                            </div>
-                        </div>
-                        <div className="text-right bg-slate-100 p-6 rounded-xl no-print">
-                            <div className="text-sm text-slate-500 uppercase tracking-wider mb-1">Note Finale</div>
-                            <div className={`text-5xl font-bold ${history.filter(h => h.isCorrect).length >= 3 ? 'text-emerald-600' : 'text-red-600'}`}>{history.filter(h => h.isCorrect).length} / {MAX_QUESTIONS}</div>
-                        </div>
-                    </div>
-
-                    <table className="w-full text-left border-collapse mb-8 text-sm">
-                        <thead>
-                            <tr className="bg-slate-100 border-y border-slate-300">
-                                <th className="p-3 font-bold text-slate-700">#</th>
-                                <th className="p-3 font-bold text-slate-700">Données</th>
-                                <th className="p-3 font-bold text-slate-700 text-right">Votre Réponse</th>
-                                <th className="p-3 font-bold text-slate-700 text-right">Correct</th>
-                                <th className="p-3 font-bold text-slate-700 text-center">Résultat</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {history.map((h) => (
-                                <tr key={h.id} className="border-b border-slate-200">
-                                    <td className="p-3 text-slate-500">{h.id}</td>
-                                    <td className="p-3">
-                                        <div className="font-bold">{h.salary.toFixed(2)} €</div>
-                                        <div className="text-xs text-slate-500">{h.children} enfant(s)</div>
-                                    </td>
-                                    <td className="p-3 font-mono text-right">{h.userAnswer.toFixed(2)} €</td>
-                                    <td className="p-3 font-mono text-right font-bold text-slate-700">{h.correctAnswer.toFixed(2)} €</td>
-                                    <td className="p-3 text-center">
-                                        {h.isCorrect ? <span className="text-emerald-600 font-bold">OUI</span> : <span className="text-red-600 font-bold">NON</span>}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-
-                    <div className="flex justify-center gap-4 no-print">
-                        <button onClick={handlePrint} className="px-5 py-3 rounded-lg font-bold bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-all flex items-center justify-center gap-2">
-                            <Printer size={20} /> Imprimer
-                        </button>
-                        <p className="text-xs text-slate-400 self-center mt-2">(Ctrl+P si nécessaire)</p>
-                        <button onClick={() => { setHistory([]); setScreen('login'); }} className="px-5 py-3 rounded-lg font-bold bg-indigo-700 text-white hover:bg-indigo-800 transition-all flex items-center justify-center gap-2">
-                            Recommencer
-                        </button>
-                    </div>
-                    <div className="mt-8 pt-8 border-t text-center text-xs text-slate-400">
-                        Document généré par Saisie-Quest Academy
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
